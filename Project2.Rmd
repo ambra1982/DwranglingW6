@@ -1,0 +1,73 @@
+---
+title: "Project2"
+author: "Ambra"
+date: "March 10, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+Tidying data using tidyverse avaiable at http://tidyverse.org/:
+
+```{r Tidying Data}
+
+library(tidyverse)
+
+#1) Read the measle incidence table downloaded from the who.org website and skip first line:
+
+measle<- read_csv("C:/Users/ambra/Desktop/Data 607/W6/Measle_incidence_by_country.csv", skip = 1, na=" ")
+
+head(measle)
+
+ncol(measle)
+
+ ##Compute the average for all measle cases by country, arrange ascending order and then desc order, select top and bottom 10 countries and plot
+
+
+avgmeasle<-measle %>% mutate(average=round(rowMeans(.[, -1], na.rm=TRUE))) 
+
+minmeasle<- avgmeasle %>%  arrange(average) %>% slice(1:10)
+
+maxmeasle<- avgmeasle %>%  arrange(desc(average)) %>% slice(1:10)
+
+y<- bind_rows(minmeasle, maxmeasle)
+
+
+##extract ISO3 names of above countries
+library(countrycode)
+
+countries<- countrycode(avgmeasle$Country, 'country.name', 'iso3c')
+
+yiso<-avgmeasle  %>% mutate(ISO=countries)
+
+
+##map using rworldmap
+library(rworldmap)
+measleMap <- joinCountryData2Map(yiso, joinCode = "ISO3",
+  nameJoinColumn = "ISO")
+
+##In the future, I will work on adjusting  the map below
+mapCountryData(measleMap, nameColumnToPlot="average", catMethod = "quantiles",   missingCountryCol = gray(.8), addLegend=FALSE, mapTitle="1974-2014 Avg of Reported cases of measles- country comparison")
+#Gather years (col names) as a var, cases (values) as a var;
+ measlen<- measle %>% gather("Year", "Cases", 2:42, na.rm=T)
+ 
+ ##Compute tot cases per year and plot change over time worldwide
+
+x<- measlen %>% count(Year, wt = Cases) 
+
+ggplot(x, aes(Year,n)) + 
+  geom_point(aes(colour=Year))+
+  scale_x_discrete(breaks=c('1974', '1979', '1984', '1989', '1994', '1999', '2004', '2009', '2014'))+
+  ggtitle("Measle worldwide reported cases by year (Source: WHO)")+
+  theme(legend.position="none")
+
+
+
+```
+
+
+There has been a steep decrease in reported cases of measles worldwide between 1974 and 2014. The WHO dataset does not provide the population size, therefore the heat map above is based on the average of reported cases by country.
