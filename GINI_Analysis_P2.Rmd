@@ -1,0 +1,70 @@
+---
+title: "GINI_Analysis_P2"
+author: "Ambra"
+date: "March 17, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r SubjectAnalysis}
+
+library(tidyverse)
+library(stringr)
+##Add file import from github
+GINI<- read_csv("C:/Users/ambra/Desktop/Data 607/W6/WB_GINI_INDEX.csv", na="..")
+GINI<- GINI[,-c(1,2,15,16)]
+
+##First, I will clean up the col names to show only years
+colnames(GINI) <- gsub("\\s\\[YR\\d{4}\\]", "", colnames(GINI))
+
+##Gather and select only complete cases
+GINI.long<- GINI %>%  gather("Year", "Rate", 3:ncol(.), na.rm=T) %>% arrange(`Country Name`)
+
+##As per Joel's post, "A potential analysis that could be performed is the trend in the GINI coefficient for each country (or continent) or the average of the GINI coefficient." Let's start by adding a new variable for the continent.
+
+library(countrycode)
+continents<- countrycode(GINI.long$`Country Name`, 'country.name', 'continent')
+GINI.long<-GINI.long %>% mutate(Continent=continents) %>% na.omit
+
+##Compute the average by continent
+
+avereg <- GINI.long%>% 
+        group_by(Continent, Year) %>% 
+        summarise(Rate= mean(Rate))
+
+##Plotting the GINI  Trend per country and continent
+
+ggplot(GINI.long, aes(Year,Rate,color = Continent)) +
+  geom_line(aes(group=`Country Name`)) +
+  geom_point(data=avereg, alpha = .6, size = 6) +
+  theme_bw() +
+  ggtitle("GINI Index Trend across countries and continents (source:WB)")+
+  ylab("GINI Index")
+
+##mapping the index
+library(rworldmap)
+library(classInt)
+
+avgGINI<-GINI %>% mutate(Average=round(rowMeans(.[, c(-1,-2)], na.rm=TRUE))) 
+GINIMap <- joinCountryData2Map(avgGINI, joinCode = "ISO3",
+  nameJoinColumn = "Country Code")
+
+##To customize the catMethod of the rworldmap and create default breaks - used the library classInt and reference code from https://rdrr.io/rforge/rworldmap/man/mapCountryData.html
+
+classInt <- classIntervals(GINIMap$Average, n=8, style="jenks")
+catMethod = classInt$brks
+
+#creating palette
+ op <- palette(c("greenyellow", "green", "green4", "rosybrown1", "orangered2","red2","red3","red4"))
+
+
+mapCountryData(GINIMap, nameColumnToPlot="Average", catMethod = catMethod,   missingCountryCol = gray(.8), addLegend=TRUE, mapTitle="GINI Index across the world, average 1990-2014", colourPalette="palette", oceanCol = "LightBlue")
+
+```
+
+On average, the GINI Index seems to be higher in the Americas than in the rest of the world, meaning significant income inequality. The lower end of the range is Europe. Apparently, there was a significant drop in income disparity in Oceania between 2000 and 2008.
+
+The map shows that countries in the southernmost region of Africa are characterized by the highest level of income inequality. Also, there are no low or medium income inequality countries in Central and South America.
