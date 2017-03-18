@@ -1,0 +1,66 @@
+---
+title: "NYHeatComplaintsP2"
+author: "Ambra"
+date: "March 17, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r NYC Heat Complaints}
+
+library(tidyverse)
+library(stringr)
+
+heatdf<- read_csv("C:/Users/ambra/Desktop/Data 607/W6/NYCHeatComplaints.csv", na=" ", col_names = TRUE)
+
+
+##this dataset is quite massive, with 169902 obs- I am selecting a random sample
+##Clean up values in cols 2 and 3, by removing the time
+
+heatdf<- heatdf %>% sample_frac(0.003, replace = TRUE)
+
+##Analyze the average resolution time of open incidents by borough
+##Filter by Status=Closed
+heatdf<- heatdf %>%  filter(Status=="Closed") %>% na.omit 
+
+extractdate<- function(x) {
+str_extract_all(x, "[[:digit:]]*\\/[[:digit:]]*\\/[[:digit:]]*")}
+
+for (i in 1:nrow(heatdf)){
+  
+        heatdf$`Created Date`[i]<-extractdate(heatdf$`Created Date`[[i]])
+        heatdf$`Closed Date`[i]<-extractdate(heatdf$`Closed Date`[[i]])
+  
+}
+
+##Create new variable for length of incident resolution
+heatdf<- heatdf %>% mutate(resolutiondays=(as.Date(as.character(.$`Closed Date`),format="%Y/%m/%d")) - (as.Date(as.character(.$`Created Date`),  format="%Y/%m/%d")))
+
+meanres<- heatdf %>% na.omit %>%  arrange(Borough) %>% group_by(Borough) %>% summarise(avg = round(mean(resolutiondays), digits=2)) 
+
+
+ggplot(meanres, aes(Borough, avg, color = Borough, fill = Borough)) + 
+  geom_bar(stat="identity")+
+  ggtitle("2016-2017 Average days to resolve a heat complaint across NYC boroughs")
+
+mean(meanres$avg)
+
+##Count closed complaints by Borough
+totcompl<- heatdf %>%  na.omit %>% arrange(Borough) %>% group_by(Borough) %>% summarise(totc=n()) 
+
+df<- inner_join(meanres, totcompl, by = "Borough")
+
+
+t <- ggplot(df, aes(avg, totc)) + geom_point()
+t + facet_grid(. ~ Borough)
+
+
+```
+
+Among the random sample, Staten Island-related heat incidents take the longest to be resolved, with an average of 91.7 days (vs. a NYC average of 76.1 days). However, when we look at the total number of complaints raised, there was only one in Staten Island.
+
